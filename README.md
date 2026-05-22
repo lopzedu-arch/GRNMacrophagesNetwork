@@ -4,7 +4,7 @@ Author: lopzedu-arch
 
 
 This code is part of the work presented in the article: Model of the macrophage-lymphocyte bridge
-in the immune response. It allows the simulation of the immune network proposed within the aforementioned article.
+in the immune response. It allows the simulation of the immune network dynamics proposed within the aforementioned article.
 
 The code is structured into three fundamental components:
 
