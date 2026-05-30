@@ -32,16 +32,18 @@ class NetworkEquations:
                 return 1 / (1 + np.exp(-b*(x-u)))
             elif a_function == 'tanh':
                 return (1+np.tanh(-b*(x-u)))/2
-            elif a_function == 'relu':
-                return np.maximum(0,-b*(x-u))
-
+            elif a_function == 'hill':
+                return hill_activation(x, n=10, Kd=0.5, u=0.5)
+        def hill_activation(x, n=10, Kd=0.5, u=0.5):
+            x = np.asarray(x)
+            return x**n / (Kd**n + x**n)
         def system_ode(t, q, *p):
             w = np.zeros(len(q))
             w[0] = p[5]
             w[1] = p[9]
             w[2] = (p[10]+q[20]-p[10]*q[20])
             w[3] = p[11]
-            w[4] = (p[19]+p[19]*p[10]-p[19]*p[19]*p[10])
+            w[4] = ((p[19]+p[19]*p[10]-p[19]*p[19]*p[10])+q[30]-(p[19]+p[19]*p[10]-p[19]*p[19]*p[10])*q[30])
             w[5] = p[12]
             w[6] = (p[15]+q[27]-p[15]*q[27])
             w[7] = q[0]*(1-(q[18]+q[13]-q[18]*q[13]))
@@ -98,7 +100,7 @@ class NetworkEquations:
             w[58] = q[9]*q[48]
             w[59] = q[9]*q[48]
             w[60] = (q[15]+q[56]-q[15]*q[56])
-            w[61] = (q[73]*q[72]+q[70]-q[73]*q[72]*q[70])
+            w[61] = (((q[73]*q[72]+q[70]-q[73]*q[72]*q[70])+q[41]*q[30]-(q[73]*q[72]+q[70]-q[73]*q[72]*q[70])*q[41]*q[30])+q[41]*q[34]-((q[73]*q[72]+q[70]-q[73]*q[72]*q[70])+q[41]*q[30]-(q[73]*q[72]+q[70]-q[73]*q[72]*q[70])*q[41]*q[30])*q[41]*q[34])
             w[62] = q[61]
             w[63] = (q[62]+q[51]-q[62]*q[51])
             w[64] = q[63]
@@ -313,132 +315,197 @@ class BooleanToFuzzyProbabilistic:
         return f"_A{marker_number}_"
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
+
 @dataclass
 class PlotConfig:
     variables: List[str]
     labels: List[str]
     colors: List[str]
     styles: List[str]
+    legfontsize: float
+    legncol: int
+    title: str
+
 SUBNETWORKS = {
     'Macrophage inputs': PlotConfig(
         variables=[],
         labels=[],
         colors=[],
-        styles=[]
+        styles=[],
+        legfontsize=12,
+        legncol=1,
+        title='Microenviroment'
     ),
-    'Macrophage metabolism': PlotConfig(
+    'Macrophage Metabolism': PlotConfig(
         variables=['MGlycolysis', 'MOXPHOS', 'MAMPATPratio', 'MAMPK'],
         labels=['Glycolysis', 'OXPHOS', 'AMP/ATP', 'AMPK'],
         colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red'],
-        styles=['-', ':', '--', '-.']
+        styles=['-', ':', '--', '-.'],
+        legfontsize=12,
+        legncol=2,
+        title='Metabolism'
     ),
-    'Macrophages activity': PlotConfig(
-        variables=['PHAGOCYTOSIS', 'PROCESSING', 'MHC2', 'PHAGOSOME'],
-        labels=['Phagocytosis', 'Antigen Processing', 'MHC II', 'Endocytosis'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red'],
-        styles=['-', ':', '--', '-.']
+    'Phagocytosis': PlotConfig(
+        variables=['PHAGOSOME','PHAGOCYTOSIS', 'PROCESSING', 'MHC2'],
+        labels=['Endocytosis','Phagocytic program', 'Antigen Processing', 'MHC II-CD80/86'],
+        colors=['#FFD700', '#32CD32', '#1E90FF', '#FF6347'],
+        styles=['-', '-', '-', '-'],
+        legfontsize=12,
+        legncol=1,
+        title='Phagocytosis'
     ),
-    'Macrophage transciption factors': PlotConfig(
+    'Macrophage transcription factors': PlotConfig(
         variables=['MNFKB', 'MAP1', 'IRF3', 'IRF4', 'IRF7'],
         labels=['NF-κB', 'AP-1', 'IRF3', 'IRF4', 'IRF7'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red', 'tab:brown'],
-        styles=['-', ':', '--', '-.', '-']
+        colors=['#6A5ACD', '#FF69B4', '#00FA9A', '#FF4500', '#9932CC'],
+        styles=['-', '-', '-', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Transcription factors'
     ),
-    'Macrophage-secreted cytokines': PlotConfig(
-        variables=['IL6OUT', 'IL12OUT', 'IL18OUT', 'IL33OUT', 'IL10OUT'],
-        labels=['IL6', 'IL12', 'IL18', 'IL33', 'IL10'],
-        colors=['tab:brown', 'tab:cyan', 'tab:red', 'yellow', 'blueviolet'],
-        styles=['--', '-.', ':', '-', ':']
+    'Secreted cytokines': PlotConfig(
+        variables=['IL6OUT', 'IL12OUT', 'IL18OUT', 'IL33OUT', 'IL10OUT','IFNA','IL1BOUT', 'TNFAOUT'],
+        labels=['IL6', 'IL12', 'IL18', 'IL33', 'IL10','IFN-α','IL-1β','TNF-α'],
+        colors=['tab:brown', 'tab:cyan', 'tab:red', 'yellow', 'blueviolet', '#3CB371', '#FF6347', '#000000'],
+        styles=[':', ':', ':', ':', ':', '-', ':', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Secreted cytokines'
     ),
     'M1': PlotConfig(
         variables=['IFNA', 'IL1BOUT', 'IL6OUT', 'IL12OUT', 'IL33OUT', 'IL18OUT', 'TNFAOUT'],
         labels=['IFN-α', 'IL-1β', 'IL-6', 'IL-12', 'IL-33', 'IL-18', 'TNF-α'],
-        colors=['lawngreen', 'blueviolet', 'tab:brown', 'tab:cyan', 'yellow', 'tab:red', 'black'],
-        styles=['-', ':', '--', '-.', '-', ':', '--']
+        colors=['#3CB371', '#FF6347','tab:brown','tab:cyan', 'yellow', 'tab:red', '#000000'],
+        styles=['-', ':', ':', ':', ':', ':', '-'],
+        legfontsize=11,
+        legncol=3,
+        title='M1'
     ),
     'M2a': PlotConfig(
         variables=['PPARG', 'IL10OUT', 'JMJD3', 'STAT6'],
         labels=['PPAR-γ', 'IL-10', 'JMJD3', 'STAT6'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red'],
-        styles=['-', ':', '--', '-.']
+        colors=['#DAA520','blueviolet', '#20B2AA', '#CD5C5C'],
+        styles=['-', ':', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='M2a'
     ),
     'M2b': PlotConfig(
         variables=['ERK', 'IL10OUT'],
         labels=['ERK', 'IL-10'],
-        colors=['lawngreen', 'blueviolet'],
-        styles=['-', ':']
+        colors=['#B8860B', 'blueviolet'],
+        styles=['-', ':'],
+        legfontsize=12,
+        legncol=1,
+        title='M2b'
     ),
     'M2c': PlotConfig(
         variables=['STAT3', 'IL10OUT'],
         labels=['STAT3', 'IL-10'],
-        colors=['lawngreen', 'blueviolet'],
-        styles=['-', ':']
+        colors=['#DB7093','blueviolet'],
+        styles=['-', ':'],
+        legfontsize=12,
+        legncol=1,
+        title='M2c'
     ),
-    'Lymphocytes phenotypes': PlotConfig(
+    'Lymphocytes phenotype': PlotConfig(
         variables=['TBET', 'GATA3', 'RORGT', 'FOXP3', 'BCL6'],
         labels=['Th1', 'Th2', 'Th17', 'Treg', 'Tfh'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red', 'grey'],
-        styles=['', '', '', '', '']
+        colors=['#228B22', '#4B0082', '#008080', '#B22222', '#A0522D'],
+        styles=['-', '-', '-', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Lymphocyte phenotype'
     ),
     'Lymphocyte inputs': PlotConfig(
         variables=[],
         labels=[],
         colors=[],
-        styles=[]
+        styles=[],
+        legfontsize=12,
+        legncol=1,
+        title='Microenviroment'
     ),
     'Antigen presentation': PlotConfig(
         variables=['TCR', 'CD28', 'CTLA4', 'NDRG1'],
         labels=['TCR', 'CD28', 'CTLA4', 'NDRG1'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red'],
-        styles=['-', ':', '--', '-.']
+        colors=['#7B68EE', '#48D1CC', '#FFA07A', '#F08080'],
+        styles=['-', '-', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Antigen presentation'
     ),
-    'T cell metabolism': PlotConfig(
+    'T Metabolism': PlotConfig(
         variables=['Glycolysis', 'OXPHOS', 'AMPATPratio', 'AMPK'],
         labels=['Glycolysis', 'OXPHOS', 'AMP/ATP', 'AMPK'],
         colors=['lawngreen', 'blueviolet', 'tab:cyan', 'tab:red'],
-        styles=['-', ':', '--', '-.']
+        styles=['-', ':', '--', '-.'],
+        legfontsize=12,
+        legncol=2,
+        title='Metabolism'
     ),
-    'Transciption factors': PlotConfig(
-        variables=['AP1', 'NFAT', 'NFKB'],
-        labels=['AP1', 'NFAT', 'NFKB'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan'],
-        styles=['-', ':', '--']
+    'T Transcription factors': PlotConfig(
+        variables=['NFKB','AP1', 'NFAT'],
+        labels=['NFKB','AP1', 'NFAT'],
+        colors=['#6A5ACD', '#FF69B4', '#FFB6C1'],
+        styles=['-', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Transcription factors'
     ),
     'Activation markers': PlotConfig(
         variables=['IL2G', 'MTORC1', 'MTORC2'],
         labels=['IL2G', 'MTORC1', 'MTORC2'],
-        colors=['lawngreen', 'blueviolet', 'tab:cyan'],
-        styles=['-', ':', '--']
+        colors=['#FA8072', 'grey', '#C71585'],
+        styles=['-', '-', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Activation markers'
     ),
     'Th1': PlotConfig(
         variables=['TBET', 'IFNG'],
-        labels=['TBET', 'IFNG'],
-        colors=['lawngreen', 'blueviolet'],
-        styles=['-', ':']
+        labels=['TBET', 'IFN-γ'],
+        colors=['#228B22', '#808000'],
+        styles=['-', '-'],
+        legfontsize=12,
+        legncol=1,
+        title='Th1'
     ),
     'Th2': PlotConfig(
         variables=['GATA3', 'IL4'],
         labels=['GATA3', 'IL4'],
-        colors=['lawngreen', 'blueviolet'],
-        styles=['-', ':']
+        colors=['#4B0082', '#556B2F'],
+        styles=['-', ':'],
+        legfontsize=12,
+        legncol=1,
+        title='Th2'
     ),
     'Th17': PlotConfig(
         variables=['IL17', 'IL21', 'RORGT'],
         labels=['IL17', 'II21', 'RORGT'],
-        colors=['lawngreen', 'tab:red', 'tab:cyan'],
-        styles=['-', ':', '--']
+        colors=['#FF8C00', '#E9967A', '#008080'],
+        styles=[':', ':', '-'],
+        legfontsize=12,
+        legncol=2,
+        title='Th17'
     ),
     'Treg': PlotConfig(
-        variables=['FOXP3', 'TGFB', 'CTLA4DIM'],
-        labels=['FOXP3', 'TGFB', 'CTLA4DIM'],
-        colors=['lawngreen', 'blueviolet', 'tab:red'],
-        styles=['-', ':', '--']
+        variables=['FOXP3', 'TGFB', 'CTLA4DIM','IL10OUT'],
+        labels=['FOXP3', 'TGFB', 'CTLA4DIM','IL10'],
+        colors=['#B22222', '#DAA520', '#BDB76B', '#9370DB'],
+        styles=['-', '-', '-', ':'],
+        legfontsize=12,
+        legncol=2,
+        title='Treg'
     ),
     'Tfh': PlotConfig(
         variables=['BCL6', 'IL21', 'CD40L', 'IL9'],
         labels=['BCL6', 'IL21', 'CD40L', 'IL9'],
-        colors=['lawngreen', 'tab:red', 'tab:cyan', 'blueviolet'],
-        styles=['-', ':', '--', '-.']
+        colors=['#A0522D', '#E9967A', '#66CDAA', '#8FBC8F'],
+        styles=['-', ':', '-', ':'],
+        legfontsize=12,
+        legncol=2,
+        title='Tfh'
     )
 }
 import matplotlib.pyplot as plt
@@ -465,17 +532,18 @@ class NetworkInterface(NetworkEquations):
 
     #
     SUBPLOT_COLUMNS = 5
-    SUBPLOT_FIGURE_WIDTH = 16
-    SUBPLOT_HEIGHT_MULTIPLIER = 4.7
-    SUBPLOT_TIGHT_PAD = 1.00
+    SUBPLOT_FIGURE_WIDTH = 21
+    SUBPLOT_HEIGHT_MULTIPLIER = 6.5
+    SUBPLOT_TIGHT_PAD = 0.8
+    SUBPLOT_TIGHT_PAD_Y = 0.0
 
     #
     LEGEND_BBOX_X = 0.0
     LEGEND_BBOX_Y = 1.5
     LEGEND_BBOX_WIDTH = 1.0
     LEGEND_BBOX_HEIGHT = 0.02
-    LEGEND_FONT_SIZE = 8
-    LEGEND_TITLE_FONT_SIZE = 12
+    LEGEND_FONT_SIZE = 14
+    LEGEND_TITLE_FONT_SIZE = 14
 
     #
     BAR_ALPHA = 0.85
@@ -492,13 +560,11 @@ class NetworkInterface(NetworkEquations):
     INPUT_GROUPS = {
         'Antigen microenviroment': sorted(['LPSE', 'LP', 'DSRNA', 'SSRNA', 'CPGDNA',
                                            'GMCSFE', 'IC3B', 'IGGC', 'IGAC', 'CITDSRNA', 'CITSSRNA']),
-        'Cytokine microenviroment': sorted(['IL1BE', 'IL4E', 'IL4L', 'IL10E', 'TGFBE', 'IL10L',
-                                            'IL12E', 'IL6E', 'IL21E', 'IL18E', 'IL33E', 'IFNGE', 'IFNGL', 'TNFA']),
+        'Cytokine microenviroment': ['IFNGE', 'IFNGL', 'IL1BE', 'IL4E', 'IL4L', 'IL6E', 'IL10E', 'IL10L', 'IL12E', 'IL18E', 'IL21E', 'IL33E', 'TGFBE','TNFA'],
         'Activation parameters': sorted(['b', 'TCD8086', 'TMHC2', 'MHC2E', 'CD8086E']),
         'Macrophage nutrients': sorted(['MO2', 'MGLC']),
         'Nutrients and molecular therapies': sorted(['GLC', 'O2', 'CIAP', 'GLN', 'MFA', 'FA',
-                                                      'TRP', 'METF', 'RAPA', 'PRED', 'CS'])
-    }
+                                                      'TRP', 'METF', 'RAPA', 'PRED', 'CS'])}
 
     #
     HIDDEN_SLIDERS = ['IL10OUT', 'IL6OUT', 'IL33OUT', 'IL18OUT', 'IL12OUT']
@@ -508,9 +574,9 @@ class NetworkInterface(NetworkEquations):
 
     #
     MAX_OUT_SLIDERS_DEFAULT = [100]  #
-    ACTIVATION_FUNCTIONS = ['sigmoid', 'tanh', 'relu', 'hill']
+    ACTIVATION_FUNCTIONS = ['sigmoid', 'tanh', 'hill']
     DEFAULT_ACTIVATION = 'sigmoid'
-    ODE_SOLVERS = ['TRBDF2', 'DOP853', 'RadauIIA5', 'Rodas5', 'LSODA']
+    ODE_SOLVERS = ['DOP853', 'LSODA']
     DEFAULT_SOLVER = 'LSODA'
     DISTRIBUTION_TYPES = ['normal', 'uniform', 'laplace']
     DEFAULT_DISTRIBUTION = 'uniform'
@@ -529,12 +595,11 @@ class NetworkInterface(NetworkEquations):
                       bbox_position, ncol=1, y_limit=None):
         axi.set_xticks(range(len(labels)))
         axi.set_xticklabels(labels_mute if labels_mute else labels,
-                            rotation=90, ha='center', fontsize=12)
-        axi.tick_params(axis='y', labelsize=12)
+                            rotation=90, ha='center', fontsize=13)
+        axi.tick_params(axis='both', labelsize=13)
         axi.bar(labels, values, color=self.BAR_COLOR, alpha=self.BAR_ALPHA, label='_nolegend_')
         axi.legend(bbox_to_anchor=bbox_position, loc=1, ncol=ncol,
-                  mode="expand", borderaxespad=0., prop={'size': self.LEGEND_FONT_SIZE},
-                  title=title, fontsize=self.LEGEND_TITLE_FONT_SIZE)
+                  mode="expand", borderaxespad=0.,title=title, title_fontsize='xx-large')
         if y_limit:
             axi.set_ylim(*y_limit)
         return axi
@@ -547,8 +612,8 @@ class NetworkInterface(NetworkEquations):
                                        bbox_position, ncol=1, y_limit=self.BAR_Y_LIMIT)
 
     def create_lymphocyte_inputs_chart(self, axi, bars_reference, subr, bbox_position):
-        reference = ['IL12E', 'IL18E', 'IL33E', 'IL6E', 'IL10L', 'IL4L']
-        labels = ['TCR/CD28', 'IL12L', 'IL18L', 'IL33L', 'IL6L', 'IL10L', 'IL4L']
+        reference = ['IL12E', 'IL18E', 'IL33E', 'IL6E', 'IL10L', 'IL4L','IL21E']
+        labels = ['TCR/CD28', 'IL12L', 'IL18L', 'IL33L', 'IL6L', 'IL10L', 'IL4L','IL21L']
         TCR_value = 1 if bars_reference.get('MHC2E') == 1 and bars_reference.get('CD8086E') else 0
         values = [bars_reference[ref] for ref in reference]
         values = [TCR_value] + values
@@ -559,14 +624,15 @@ class NetworkInterface(NetworkEquations):
         config = self.features[subr]
         labels = config.labels
         axi.set_xticks(range(len(labels)))
-        axi.set_xticklabels(labels, rotation=90, ha='right', fontsize=12)
+        axi.set_xticklabels(labels, rotation=90, ha='right', fontsize=self.LEGEND_FONT_SIZE)
         phenotype_population = [results['nodes'][k]['max'] for k in config.variables
                                if k in results['nodes']]
         axi.bar(labels, phenotype_population, color=self.BAR_COLOR)
         axi.legend(bbox_to_anchor=(self.LEGEND_BBOX_X, 1.3, self.LEGEND_BBOX_WIDTH, 0.09),
                   loc=1, ncol=1, mode="expand", borderaxespad=0.,
-                  prop={'size': self.LEGEND_FONT_SIZE}, title=subr,
-                  fontsize=self.LEGEND_TITLE_FONT_SIZE)
+                  prop={'size': self.LEGEND_FONT_SIZE}, title=config.title,
+                  title_fontsize='xx-large')
+        axi.tick_params(axis='both', labelsize=self.LEGEND_FONT_SIZE)
         axi.set_ylim(*self.BAR_Y_LIMIT)
         return axi
 
@@ -579,36 +645,36 @@ class NetworkInterface(NetworkEquations):
                     color=col, linestyle=sty, linewidth=2)
             axi.legend(bbox_to_anchor=bbox_position, loc=1, ncol=ncol,
                       mode="expand", borderaxespad=0., prop={'size': self.LEGEND_FONT_SIZE},
-                      title=subr, fontsize=self.LEGEND_TITLE_FONT_SIZE)
-            axi.set_xlabel('Time', fontsize=12)
-            axi.set_ylabel('Expression', fontsize=12)
+                      title=config.title,  title_fontsize='xx-large')
+            axi.tick_params(axis='both', labelsize=14)
+            axi.set_xlabel('Time', fontsize=14)
+            axi.set_ylabel('Expression', fontsize=14)
         axi.set_ylim(*self.PLOT_Y_RANGE)
         axi.grid(False)
         return axi
 
     def design_and_personalize_subplots(self, results, inputs):
         n_rows = ceil(len(self.features.keys()) / self.SUBPLOT_COLUMNS)
-        fig2, axis = plt.subplots(n_rows, self.SUBPLOT_COLUMNS, figsize=(self.SUBPLOT_FIGURE_WIDTH, self.SUBPLOT_HEIGHT_MULTIPLIER * n_rows))
+        fig2, axis = plt.subplots(n_rows, self.SUBPLOT_COLUMNS, figsize=(self.SUBPLOT_FIGURE_WIDTH, self.SUBPLOT_HEIGHT_MULTIPLIER * n_rows), layout="constrained")
         axis = axis.flatten()
         sub_names = list(self.features.keys())
         positions_bbox_to_anchor = {subr: (self.LEGEND_BBOX_X, self.LEGEND_BBOX_Y, self.LEGEND_BBOX_WIDTH, self.LEGEND_BBOX_HEIGHT)
                                      for subr in self.features}
-        col_bbox_to_anchor = {subr: 1 for subr in self.features}
-        col_bbox_to_anchor['M1'] = 2
         bars_reference = dict(zip(self.out_of_network_arguments, inputs))
         for idx, (axi, subr) in enumerate(zip(axis, sub_names)):
+            config=self.features[subr]
             if subr == 'Macrophage inputs':
-                self.create_macrophage_inputs_chart(axi, bars_reference, subr, positions_bbox_to_anchor[subr])
+                self.create_macrophage_inputs_chart(axi, bars_reference,config.title, positions_bbox_to_anchor[subr])
             elif subr == 'Lymphocyte inputs':
-                self.create_lymphocyte_inputs_chart(axi, bars_reference, subr, positions_bbox_to_anchor[subr])
-            elif subr == 'Lymphocytes phenotypes':
+                self.create_lymphocyte_inputs_chart(axi, bars_reference,config.title, positions_bbox_to_anchor[subr])
+            elif subr == 'Lymphocytes phenotype':
                 self.create_lymphocyte_phenotypes_chart(axi, results, subr)
             else:
-                self.create_line_plot(axi, results, subr, positions_bbox_to_anchor[subr], col_bbox_to_anchor[subr])
+                self.create_line_plot(axi, results, subr, positions_bbox_to_anchor[subr], config.legncol)
         for j in range(idx + 1, len(axis)):
             axis[j].set_visible(False)
         plt.show()
-        plt.tight_layout(h_pad=self.SUBPLOT_TIGHT_PAD)
+        fig2.get_layout_engine().set(h_pad=self.SUBPLOT_TIGHT_PAD,w_pad=self.SUBPLOT_TIGHT_PAD_Y)
         return fig2
 
     def _create_slider(self, label: str, minimum: float = DEFAULT_MIN_SLIDER,
@@ -681,6 +747,14 @@ class NetworkInterface(NetworkEquations):
                 for name, element in zip(self.out_of_network_names, all_sliders_out):
                     element.label = name
 
+                with gr.Row():
+                    reset_decay_rates_sliders = gr.Button('Reset decay rates', variant='secondary')
+
+                labels_dr = [f'Decay rate: ({par})' for par in self.array_of_elements]
+                values_dr = [self.DEFAULT_DECAY_RATE for _ in range(self.n)]
+                all_sliders_alpha = self.create_slider_group(labels_dr, values_dr,
+                                                                minimums=0, maximums=10,
+                                                                exceptions=None, n_columns=5)
                 with gr.Row():
                     reset_decay_rates_sliders = gr.Button('Reset decay rates', variant='secondary')
 
