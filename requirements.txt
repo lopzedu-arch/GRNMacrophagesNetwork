@@ -1,0 +1,6 @@
+# Core dependencies
+gradio==6.3.0
+numpy==2.3.4
+scipy==1.16.2
+matplotlib==3.10.7
+plotly==6.5.2
